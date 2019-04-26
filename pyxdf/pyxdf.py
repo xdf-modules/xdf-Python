@@ -394,7 +394,6 @@ def load_xdf(filename,
         streams = _limit_streams_to_overlap(streams)
 
 
-
     streams = [s for s in streams.values()]
     return streams, fileheader
 
