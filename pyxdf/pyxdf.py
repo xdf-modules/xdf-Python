@@ -71,7 +71,7 @@ def load_xdf(filename,
              synchronize_clocks=True,
              handle_clock_resets=True,
              dejitter_timestamps=True,
-              sync_timestamps=False,
+             sync_timestamps=False,
              overlap_timestamps=False,
              jitter_break_threshold_seconds=1,
              jitter_break_threshold_samples=500,
@@ -388,11 +388,9 @@ def load_xdf(filename,
             logger.warning('sync_timestamps defaults to "linear"')
         streams = _sync_timestamps(streams, kind=sync_timestamps)
 
-
-  # limit streams to their overlapping periods
+    # limit streams to their overlapping periods
     if overlap_timestamps:
         streams = _limit_streams_to_overlap(streams)
-
 
     streams = [s for s in streams.values()]
     return streams, fileheader
@@ -784,17 +782,17 @@ def _parse_streamheader(xml):
     return {el.tag: el.text for el in xml if el.tag != "desc"}
 
 
-def _interpolate(x:np.ndarray, y:np.ndarray, new_x:np.ndarray,
+def _interpolate(x: np.ndarray, y: np.ndarray, new_x: np.ndarray,
                  kind='linear') -> np.ndarray:
     '''Perform interpolation for _sync_timestamps
 
     If scipy is not installed, the method falls back to numpy, and then only
-    support linear interpolation.
+    supports linear interpolation.
     '''
     try:
         from scipy.interpolate import interp1d
         f = interp1d(x, y, kind=kind, axis=0,
-                     assume_sorted=True, #speed up
+                     assume_sorted=True,  # speed up
                      bounds_error=False)
         return f(new_x)
     except ImportError as e:
@@ -803,9 +801,9 @@ def _interpolate(x:np.ndarray, y:np.ndarray, new_x:np.ndarray,
         else:
             return np.interp(new_x, xp=x, fp=y, left=np.NaN, right=np.NaN)
 
+
 def _sync_timestamps(streams, kind='linear'):
-    '''syncs all streams to the fastest sampling rate by shifting or
-    upsampling
+    '''Sync all streams to the fastest sampling rate by shifting or upsampling.
 
     Depending on a streams channel-format, extrapolation is performed using
     with NaNs (numerical formats) or with [''] (string format).
@@ -828,7 +826,7 @@ def _sync_timestamps(streams, kind='linear'):
     srates = [stream['info'][srate_key] for stream in streams.values()]
     max_fs = max(srates, default=0)
 
-    if max_fs == 0: #either no valid stream or all streams are async
+    if max_fs == 0:  # either no valid stream or all streams are async
         return streams
     if srates.count(max_fs) > 1:
         # highly unlikely, with floating point precision and sampling noise
@@ -863,8 +861,7 @@ def _sync_timestamps(streams, kind='linear'):
     for stream in streams.values():
         channel_format = stream['info']['channel_format'][0]
 
-        if ( (channel_format == 'string') and
-            (stream['info'][srate_key]== 0) ):
+        if ((channel_format == 'string') and (stream['info'][srate_key] == 0)):
             # you can't really interpolate strings; and streams with srate=0
             # don't have a real sampling rate. One approach to sync them is to
             # shift their events to the nearest timestamp of the new
@@ -902,12 +899,10 @@ def _sync_timestamps(streams, kind='linear'):
                 # i am stuck with float64s, as integers have no nans
                 # therefore i round to the nearest integer instead
                 stream['time_series'] = np.around(stream['time_series'], 0)
-
-
         else:
-            raise NotImplementedError("Don't know how to sync sampling for " +
-                                      'channel_format={}'.format(
-                                              channel_format))
+            raise NotImplementedError("Don't know how to sync sampling for "
+                                      "channel_format="
+                                      "{}".format(channel_format))
         stream['info']['effective_srate'] = max_fs
 
     return streams
@@ -928,7 +923,7 @@ def _limit_streams_to_overlap(streams):
         # skip streams with fs=0 or if they send strings, because they might
         # just not yet have send anything on purpose (i.e. markers)
         # while other data was already  being recorded.
-        if (stream['info']['effective_srate'] !=0 and
+        if (stream['info']['effective_srate'] != 0 and
             stream['info']['channel_format'][0] != 'string'):
             # extrapolation in _sync_timestamps is done with NaNs
             not_extrapolated = np.where(~np.isnan(stream['time_series']))[0]
@@ -940,9 +935,9 @@ def _limit_streams_to_overlap(streams):
     for stream in streams.values():
         # use np.around to prevent floating point hickups
         around = np.around(stream['time_stamps'], 15)
-        a = np.where(around>=ts_first)[0]
-        b = np.where(around<=ts_last)[0]
-        select = np.intersect1d(a,b)
+        a = np.where(around >= ts_first)[0]
+        b = np.where(around <= ts_last)[0]
+        select = np.intersect1d(a, b)
         if type(stream['time_stamps']) is list:
             stream['time_stamps'] = [stream['time_stamps'][s] for s in select]
         else:
@@ -954,5 +949,3 @@ def _limit_streams_to_overlap(streams):
             stream['time_series'] = stream['time_series'][select]
 
     return streams
-
-
